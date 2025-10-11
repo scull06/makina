@@ -1,0 +1,7 @@
+read_verilog -sv -formal -overwrite {workspace}/src/pc.v
+read_verilog -sv -formal -overwrite {workspace}/src/decoder.v
+read_verilog -sv -formal -overwrite {workspace}/src/comparator.v
+read_verilog -sv -formal -overwrite {workspace}/src/alu.v
+read_verilog -sv -formal -overwrite {workspace}/src/cpu.v
+design -reset-vlog; proc;
+write_json {workspace}/netlist/CPU.json

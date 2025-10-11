@@ -16,9 +16,9 @@ module decoder (
    output reg [2:0] reg_dst, //used for alu out, pc jumps and memory ops st and ld
    output reg [2:0] reg_rs1,
    output reg [2:0] reg_rs2,
-   output reg [6:0] imm_se,
+   output reg [15:0] imm_se,
    output reg  reg_write,
-   output reg  alu_src_imm, //this will be the ALU immediate sing extended input whenever it is needed
+   output reg  alu_src_imm, //this will be the ALU immediate sign extended input whenever it is needed
    //Memory control
    output reg  mem_read,
    output reg  mem_write,
