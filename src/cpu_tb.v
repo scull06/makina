@@ -10,6 +10,14 @@ module cpu_tb;
     wire [15:0] mem_data_write;
     wire        mem_write_enabled;
 
+
+    // small instr + data memory
+    reg [15:0] data_mem  [0:63];
+
+    // simple clock generator
+    initial clk = 1'b0;
+    always #20 clk = ~clk;
+
     // Instantiate CPU
     CPU uut (
         .clk(clk),
@@ -22,81 +30,175 @@ module cpu_tb;
         .mem_write_enabled(mem_write_enabled)
     );
 
-    // small instr + data memory
-    reg [15:0] instr_mem [0:31];
-    reg [15:0] data_mem  [0:63];
+    ProgramMemory #(
+        .MEM_SIZE  	(5),
+        .FILE_PATH 	("tests/p1"))
+    u_ProgramMemory(
+        .address     	(pc_addr_out  ),
+        .instruction 	(Instruction  )
+    );
+    
 
-    // simple clock generator
-    initial clk = 0;
-    always #25 clk = ~clk;
+    program_tracer tracer(
+        .clk(clk),
+        .PC(pc_addr_out),
+        .instr(Instruction),
+        .cpu_registers(uut.u_RegisterFile.cpu_registers),
+        .mem_addr(mem_addr),
+        .mem_data_in(mem_data_in),
+        .mem_data_out(mem_data_write),
+        .mem_write(mem_write_enabled),
+        .mem_read(uut.u_decoder.mem_read)
+    );
 
-    // fetch instruction combinationally from instr_mem using pc
-    always @(*) begin
-        Instruction = instr_mem[pc_addr_out];
-    end
 
-    // always present data bus: drive mem_data_in from data_mem at mem_addr
+
+    // // always present data bus: drive mem_data_in from data_mem at mem_addr
     always @(*) begin
         mem_data_in = data_mem[mem_addr];
     end
 
     // perform memory writes from CPU when mem_write_enabled asserted
+    integer cycle = 0;
     always @(posedge clk) begin
         if (mem_write_enabled) begin
             data_mem[mem_addr] <= mem_data_write;
         end
+
+        cycle = cycle + 1;
+        
+        if (cycle == 7) begin
+            for (cycle = 0; cycle < 10; cycle=cycle+1) begin
+                $display("%d %b", cycle, data_mem[cycle]);
+            end
+            $finish;
+        end
     end
 
+    
     integer i;
-	integer cycle = 0;
-
     initial begin
-        // clear memories
-        for (i=0; i<32; i = i+1) instr_mem[i] = 16'h0000;
         for (i=0; i<64; i = i+1) data_mem[i]  = 16'h0000;
 
-        // preload data memory constants:
-        // data_mem[0] = 5, data_mem[1] = 3
-        data_mem[0] = 16'd5;
-        data_mem[1] = 16'd3;
-
-        // Program:
-        // 0: LD  r1, 0(r0)    ; r1 <- data_mem[0] = 5
-        instr_mem[0] = {2'b00, 1'b0, 3'b001, 3'b000, 7'b0000000};
-        // 1: LD  r2, 1(r0)    ; r2 <- data_mem[1] = 3
-        instr_mem[1] = {2'b00, 1'b0, 3'b010, 3'b000, 7'b0000001};
-        // 2: ADD r3, r1, r2   ; r3 = r1 + r2 = 8
-        instr_mem[2] = {2'b01, 4'b0000, 1'b0, 3'b011, 3'b001, 3'b010};
-        // 3: ST  r3, 2(r0)    ; data_mem[2] <- r3
-        instr_mem[3] = {2'b00, 1'b1, 3'b011, 3'b000, 7'b0000010};
-        // 4: LD  r4, 2(r0)    ; r4 <- data_mem[2] (should be 8)
-        instr_mem[4] = {2'b00, 1'b0, 3'b100, 3'b000, 7'b0000010};
-        // 5: NOP (or stop reading useful work)
-        instr_mem[5] = 16'h0000;
+        data_mem[0]= 16'd5;
+        data_mem[1]= 16'd3;
 
         // reset + run
+        #10
         rst = 1'b1;
-        #50;
+        #20;
         rst = 1'b0;
-
     end
 
-	always @(posedge clk) begin
-				cycle = cycle + 1;
-				#10; // allow combinational outputs to settle after posedge
-                $display("+++++ CYCLE %0d +++++", cycle);
-                $display(" memread =>>>> imm_se: %b | reg_write_back_sel: %d | alu_src_imm: %b",uut.u_decoder.imm_se, uut.u_decoder.reg_write_back_sel, uut.u_decoder.alu_src_imm);
-                // $display("  ALU-- OP: %b | A: %b | B: %b | Result: %b", uut.u_alu16.ALUCtrl, uut.u_alu16.A, uut.u_alu16.B, uut.u_alu16.Result);
 
-				$display(" R0=%b | R1=%b | R2=%b | R3=%b", uut.u_RegisterFile.cpu_registers[0], uut.u_RegisterFile.cpu_registers[1], uut.u_RegisterFile.cpu_registers[2], uut.u_RegisterFile.cpu_registers[3]);
-				$display(" PC=%0d | PC_jump?=%0d | INSTR=%b | MEM_ADDR=%d | MEM_WR=%b | MEM_DATA_WRITE=%0d | MEM_DATA_IN=%0d",
-						 uut.u_PC.pc_out, uut.u_PC.branch_taken, Instruction, mem_addr, mem_write_enabled, mem_data_write, mem_data_in);
-            if(cycle == 7) begin 
-                $display("DATA MEM[0]=%0d", data_mem[0]);
-                $display("DATA MEM[1]=%0d", data_mem[1]);
-                $display("DATA MEM[2]=%0d (expected 8)", data_mem[2]);
-                $display("SIM COMPLETE");
-                $finish;
-            end 
-	end
+endmodule
+
+
+
+module program_tracer(
+    input clk,
+    input [15:0] PC,
+    input [15:0] instr,
+    input [15:0] cpu_registers [0:7],
+    input [15:0] mem_addr,
+    input [15:0] mem_data_in,
+    input [15:0] mem_data_out,
+    input mem_write,
+    input mem_read
+);
+    integer cycle = 0;
+
+    // Optional: sign-extended immediate from instruction (adjust width as needed)
+    wire [15:0] imm_se = {{8{instr[7]}}, instr[7:0]};
+
+    always @(posedge clk) begin
+        string instr_str;
+
+        case (instr[15:14])
+                2'b00: begin //Memory operations
+                    if (instr[13] == 1'b0) begin
+                        // LD   Rd, offset(Rb)    ; Rd ← MEM[Rb + offset]
+                        instr_str = $sformatf("LOAD R%0d, [R%0d + %0d]  |||||  MEM[%0d] <= %0d", 
+                                                instr[11:9], instr[8:6], imm_se,  mem_addr, mem_data_out);
+                    end else begin
+                        instr_str = $sformatf("STORE R%0d, [R%0d + %0d]  |||||  MEM[%0d] => %0d", 
+                                                instr[11:9], instr[8:6], imm_se, mem_addr, mem_data_in);
+                    end
+                end 
+                2'b01: begin //ALU operations
+                    // decode fields: bit 13:10 = alu-op, UNUSED: 9 bits 8:6 = dst, 5:3 = reg_a, 2:0 = reg_b
+                    case (instr[13:10])
+                        4'b0000 : instr_str = $sformatf("ADD R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //ADD
+                        4'b0001 : instr_str = $sformatf("SUB R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //SUB
+                        4'b0010 : instr_str = $sformatf("AND R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //AND
+                        4'b0011 : instr_str = $sformatf("OR R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //OR
+                        4'b0100 : instr_str = $sformatf("XOR R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //XOR
+                        4'b0101 : instr_str = $sformatf("MUL R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //MUL
+                        4'b0111 : instr_str = $sformatf("DIV R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //DIV
+                        4'b1000 : instr_str = $sformatf("NOT R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //NOT
+                        4'b1001 : instr_str = $sformatf("NOT R%0d, R%0d, R%0d", 
+                                                   instr[8:6], instr[5:3], instr[2:0]); //MOD
+                        4'b1010 : instr_str = $sformatf("LDI R%0d, IMM=%d", instr[8:6], instr[5:0]); //LOADI
+                            default: instr_str = "ALU NOP";
+                    endcase
+                            
+                end
+                2'b10: begin //JUMP operations
+                    //[13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, [4:2]: 000 = regDst
+                    case (instr[13:11])
+                        3'b111: begin
+                            //NOP
+                        end
+                        3'b110: begin //JMP regDst -> unconditional
+                    
+                        end
+                        default: begin //JUMP_TYPE a b dest
+                        
+                        end
+                    endcase
+                end
+                default: begin
+                    instr_str = $sformatf("NOP");
+                end
+        endcase
+       
+        // // Print cycle, PC, instruction, and register snapshot
+        $display("CYCLE %0d | PC=%0d | %s | REG=[R0=%0d,R1=%0d,R2=%0d,R3=%0d,R4=%0d,R5=%0d,R6=%0d,R7=%0d]",
+                 cycle, PC, instr_str, cpu_registers[0], cpu_registers[1], cpu_registers[2], cpu_registers[3], cpu_registers[4], cpu_registers[5], cpu_registers[6], cpu_registers[7]);
+        cycle = cycle + 1;
+    end
+endmodule
+
+module ProgramMemory #(
+    parameter MEM_SIZE = 5,
+    parameter FILE_PATH = "PROGRAMNAME"
+)(
+    input [15:0] address,
+    output [15:0] instruction
+);
+
+    reg [15:0] mem [0:MEM_SIZE-1];
+
+    wire [$clog2(MEM_SIZE)-1:0] addr_index;
+    assign addr_index = address[$clog2(MEM_SIZE)-1:0];
+
+    assign instruction = mem[addr_index];
+
+    integer i;
+    initial begin
+        $display("Loading program from %s ...", FILE_PATH);
+        $readmemb(FILE_PATH, mem);
+        #1;  // one delta or small time unit
+        $display("Program loaded successfully.");
+    end
+
+
 endmodule

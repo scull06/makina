@@ -6,11 +6,15 @@ module PC (
     output reg [15:0] pc_out
 );
 
+initial begin
+    pc_out = 16'b0;
+end
+
 always @(posedge clk) begin
     if (reset == 1'b1) begin
         pc_out <= 16'b0;
     end
-     else if (branch_taken) 
+    else if (branch_taken) 
         pc_out <= w_instruction_address;
     else begin
         pc_out <= pc_out + 16'd1; 

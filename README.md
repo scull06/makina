@@ -8,7 +8,12 @@
 ##### For ALU operations
 
 bit: 15:14       13:10        9              8:6     5:3          2:0
-     2 (class).  opcode(4).   UNUSED    rdest(3).  areg(3).    breg(3)/imm(4)
+     2 (class).  opcode(4).   UNUSED    rdest(3).  a_reg(3).     b_reg(3)
+
+LOADi is an special opcode that loads 6 bit wide number into the register destination.
+
+LOADI: 15:14       13:10        9         8:6          5:0
+      2 (class).  opcode(4).   UNUSED  dest_reg(3)   immediate(6)
 
 ##### For JUMP operations
 

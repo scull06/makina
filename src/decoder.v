@@ -76,7 +76,12 @@ always @(*) begin
             reg_rs1 = instr[5:3];
             reg_rs2 = instr[2:0];
             reg_write = 1'b1;
-            alu_src_imm = 1'b0; //must pass imm_se to alu B
+
+            if(alu_ctrl ==  4'b1010)begin
+                imm_se = {{10{instr[5]}}, instr[5:0]};
+                alu_src_imm = 1'b1; //must pass imm_se to alu B
+            end
+             
         end
         2'b10: begin //JUMP operations
             alu_src_imm = 1'b0; //must pass imm_se to alu B

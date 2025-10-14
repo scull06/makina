@@ -17,7 +17,7 @@ always @(*) begin
     4'b0111 : Result = A / B; //DIV
     4'b1000 : Result = ~A;    //NOT
     4'b1001 : Result = A % B; //MOD
-    4'b1010 : Result = A;     //LOADI
+    4'b1010 : Result = B;     //LDI
         default: Result = 16'b0; 
     endcase
 end

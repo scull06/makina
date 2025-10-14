@@ -54,7 +54,8 @@ decoder u_decoder(
     .alu_src_imm        	(alu_src_imm         ),
     .mem_write          	(mem_write_enabled   ),
     .reg_write_back_sel 	(reg_write_back_sel  ),
-    .comparator_ctrl    	(jump_ctrl           )
+    .comparator_ctrl    	(jump_ctrl           ),
+    .mem_read    	        (mem_read           )
 );
 
 wire [15:0] reg_file_in;
@@ -124,9 +125,8 @@ initial begin
 end
 
 always @(posedge clk ) begin
-    // $display("REGFILE: DEST: %d | RA: %d | RB: %d", addr_dest, addr_reg_a, addr_reg_b);
     if(write_enabled)begin
         cpu_registers[addr_dest] <= write_data;
-    end    
+    end     
 end
 endmodule
