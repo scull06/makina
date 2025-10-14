@@ -76,8 +76,10 @@ always @(*) begin
             reg_rs1 = instr[5:3];
             reg_rs2 = instr[2:0];
             reg_write = 1'b1;
+            alu_src_imm = 1'b0; //must pass imm_se to alu B
         end
         2'b10: begin //JUMP operations
+            alu_src_imm = 1'b0; //must pass imm_se to alu B
             //[13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, [4:2]: 000 = regDst
             case (instr[13:11])
                 3'b111: begin

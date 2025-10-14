@@ -28,7 +28,7 @@ module cpu_tb;
 
     // simple clock generator
     initial clk = 0;
-    always #20 clk = ~clk;
+    always #25 clk = ~clk;
 
     // fetch instruction combinationally from instr_mem using pc
     always @(*) begin
@@ -62,11 +62,11 @@ module cpu_tb;
 
         // Program:
         // 0: LD  r1, 0(r0)    ; r1 <- data_mem[0] = 5
-        instr_mem[0] = 16'b0000010000000000; // {2'b00, 1'b0, 3'b001, 3'b000, 7'b0000000};
+        instr_mem[0] = {2'b00, 1'b0, 3'b001, 3'b000, 7'b0000000};
         // 1: LD  r2, 1(r0)    ; r2 <- data_mem[1] = 3
-        instr_mem[1] = 16'b0000100000000001; //{2'b00, 1'b0, 3'b010, 3'b000, 7'b0000001};
+        instr_mem[1] = {2'b00, 1'b0, 3'b010, 3'b000, 7'b0000001};
         // 2: ADD r3, r1, r2   ; r3 = r1 + r2 = 8
-        instr_mem[2] = 16'b0100000011001010; //{2'b01, 4'b0000, 3'b011, 3'b001, 3'b010};
+        instr_mem[2] = {2'b01, 4'b0000, 1'b0, 3'b011, 3'b001, 3'b010};
         // 3: ST  r3, 2(r0)    ; data_mem[2] <- r3
         instr_mem[3] = {2'b00, 1'b1, 3'b011, 3'b000, 7'b0000010};
         // 4: LD  r4, 2(r0)    ; r4 <- data_mem[2] (should be 8)
@@ -76,26 +76,27 @@ module cpu_tb;
 
         // reset + run
         rst = 1'b1;
-        #30;
+        #50;
         rst = 1'b0;
 
-
-
-		#600
-
-        // show results
-        $display("DATA MEM[0]=%0d", data_mem[0]);
-        $display("DATA MEM[1]=%0d", data_mem[1]);
-        $display("DATA MEM[2]=%0d (expected 8)", data_mem[2]);
-        $display("SIM COMPLETE");
-        $finish;
     end
 
 	always @(posedge clk) begin
 				cycle = cycle + 1;
-				#20; // allow combinational outputs to settle after posedge
-				$display("CYCLE %0d | PC=%0d | INSTR=%b | MEM_ADDR=%0d | MEM_WR=%b | MEM_DATA_WRITE=%0d | MEM_DATA_IN=%0d",
-						cycle, uut.u_PC.pc_out, Instruction, mem_addr, mem_write_enabled, mem_data_write, mem_data_in);
-				$display("R1=%b | R2=%b | R3=%b", uut.u_RegisterFile.cpu_registers[0], uut.u_RegisterFile.cpu_registers[1], uut.u_RegisterFile.cpu_registers[2]);
+				#10; // allow combinational outputs to settle after posedge
+                $display("+++++ CYCLE %0d +++++", cycle);
+                $display(" memread =>>>> imm_se: %b | reg_write_back_sel: %d | alu_src_imm: %b",uut.u_decoder.imm_se, uut.u_decoder.reg_write_back_sel, uut.u_decoder.alu_src_imm);
+                // $display("  ALU-- OP: %b | A: %b | B: %b | Result: %b", uut.u_alu16.ALUCtrl, uut.u_alu16.A, uut.u_alu16.B, uut.u_alu16.Result);
+
+				$display(" R0=%b | R1=%b | R2=%b | R3=%b", uut.u_RegisterFile.cpu_registers[0], uut.u_RegisterFile.cpu_registers[1], uut.u_RegisterFile.cpu_registers[2], uut.u_RegisterFile.cpu_registers[3]);
+				$display(" PC=%0d | PC_jump?=%0d | INSTR=%b | MEM_ADDR=%d | MEM_WR=%b | MEM_DATA_WRITE=%0d | MEM_DATA_IN=%0d",
+						 uut.u_PC.pc_out, uut.u_PC.branch_taken, Instruction, mem_addr, mem_write_enabled, mem_data_write, mem_data_in);
+            if(cycle == 7) begin 
+                $display("DATA MEM[0]=%0d", data_mem[0]);
+                $display("DATA MEM[1]=%0d", data_mem[1]);
+                $display("DATA MEM[2]=%0d (expected 8)", data_mem[2]);
+                $display("SIM COMPLETE");
+                $finish;
+            end 
 	end
 endmodule

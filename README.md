@@ -26,7 +26,14 @@ bit: 15:14       13:10        9              8:6     5:3          2:0
 
 ##### For memory operations
 
-TODO:
+Decode fields: bit 13 = R/W, bits 12:10 = reg, 9:7 = base, 6:0 = offset
+
+bit   15:14          13         12:10            9:7        6:0
+      class        (r/w)        dest reg         base      offset
+
+**dest reg**: it is the register [0..7] that will receive the data from memory.
+**base**: is the the address of the register holging the value representing the memory address from which the value will be read.
+
 
 ### Running tests and 
 

@@ -1,31 +1,4 @@
 
-/*
-Implements the registers for the CPU
-*/
-
-module RegisterFile (
-    input clk,
-    input write_enabled,
-    input [2:0] addr_reg_a,          // address of register 1
-    input [2:0] addr_reg_b,          // address of register 2
-    input [2:0] addr_dest,           // address of destination register
-    input [15:0] write_data,  // data to be written
-    output [15:0] out_reg_a, // data from rs1
-    output [15:0] out_reg_b  // data from rs2    
-);
-
-reg [15:0] cpu_registers [0:7];  //8 registers, each 16 bits wide
-
-assign out_reg_a = cpu_registers[addr_reg_a];
-assign out_reg_b = cpu_registers[addr_reg_b];
-
-always @(posedge clk ) begin
-    if(write_enabled)begin
-        cpu_registers[addr_dest] <= write_data;
-    end    
-end
-endmodule
-
 module CPU (
     input         clk,
     input         rst,
@@ -64,7 +37,7 @@ wire [15:0] pc_jump_addr;
 PC u_PC(
     .clk                   	(clk          ),
     .reset                 	(rst          ),
-    .branch_taken          	(branch_taken ),
+    .branch_taken          	(branch_taken &&  jump_ctrl),
     .w_instruction_address 	(pc_jump_addr ),
     .pc_out                	(pc_addr_out  )
 );
@@ -111,7 +84,7 @@ wire [15:0] alu_in_b = (alu_src_imm) ? imm_se : data_reg_b;
 //ALU
 alu16 u_alu16(
     .A       	(data_reg_a ),
-    .B       	(data_reg_b ),
+    .B       	(alu_in_b ),
     .ALUCtrl 	(alu_ctrl   ),
     .Result  	(alu_result )
 );
@@ -119,4 +92,41 @@ alu16 u_alu16(
 assign mem_addr = alu_result;
 assign mem_data_write = data_reg_b;
 
+endmodule
+
+
+
+/*
+Implements the registers for the CPU
+*/
+
+module RegisterFile (
+    input clk,
+    input write_enabled,
+    input [2:0] addr_reg_a,          // address of register 1
+    input [2:0] addr_reg_b,          // address of register 2
+    input [2:0] addr_dest,           // address of destination register
+    input [15:0] write_data,  // data to be written
+    output [15:0] out_reg_a, // data from rs1
+    output [15:0] out_reg_b  // data from rs2    
+);
+
+reg [15:0] cpu_registers [0:7];  //8 registers, each 16 bits wide
+
+assign out_reg_a = cpu_registers[addr_reg_a];
+assign out_reg_b = cpu_registers[addr_reg_b];
+
+integer i;
+initial begin
+    for (i = 0; i < 8; i = i + 1) begin
+        cpu_registers[i] = 16'b0;
+    end
+end
+
+always @(posedge clk ) begin
+    // $display("REGFILE: DEST: %d | RA: %d | RB: %d", addr_dest, addr_reg_a, addr_reg_b);
+    if(write_enabled)begin
+        cpu_registers[addr_dest] <= write_data;
+    end    
+end
 endmodule

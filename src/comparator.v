@@ -13,6 +13,8 @@ always @(*) begin
     branch_taken = 1'b0;
     pc_write_enabled = 1'b0;
     pc_destination_addr_out = 16'b0;
+
+    // $display("Jump op: %b | branch taken : %b", jump_operator, branch_taken);
     
     case (jump_operator)
         3'b110: branch_taken = 1'b1;                        //JMP regDst -> unconditional 
@@ -22,9 +24,9 @@ always @(*) begin
         3'b011: branch_taken = (operand_a < operand_b);     //JLT a b dest -> if a < b 
         3'b100: branch_taken = (operand_a >= operand_b);    //JGE a b dest -> if a >= b 
         3'b101: branch_taken = (operand_a <= operand_b);    //JLE a b dest -> if a <= b 
-        default:  branch_taken = 0;
+        default:  branch_taken = 1'b0;
     endcase
-
+     
     if(branch_taken)begin
         pc_write_enabled = 1'b1;
         pc_destination_addr_out = pc_destination_addr;
