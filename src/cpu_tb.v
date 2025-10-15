@@ -10,7 +10,6 @@ module cpu_tb;
     wire [15:0] mem_data_write;
     wire        mem_write_enabled;
 
-
     // small instr + data memory
     reg [15:0] data_mem  [0:63];
 
@@ -32,7 +31,7 @@ module cpu_tb;
 
     ProgramMemory #(
         .MEM_SIZE  	(5),
-        .FILE_PATH 	("tests/p1"))
+        .FILE_PATH 	("tests/p0"))
     u_ProgramMemory(
         .address     	(pc_addr_out  ),
         .instruction 	(Instruction  )
@@ -67,7 +66,7 @@ module cpu_tb;
 
         cycle = cycle + 1;
         
-        if (cycle == 7) begin
+        if (cycle == 10) begin
             for (cycle = 0; cycle < 10; cycle=cycle+1) begin
                 $display("%d %b", cycle, data_mem[cycle]);
             end
@@ -109,20 +108,20 @@ module program_tracer(
     integer cycle = 0;
 
     // Optional: sign-extended immediate from instruction (adjust width as needed)
-    wire [15:0] imm_se = {{8{instr[7]}}, instr[7:0]};
+    wire [15:0] imm_se = {{8{1'b0}}, instr[7:0]};
 
-    always @(posedge clk) begin
+    always @(posedge clk ) begin
         string instr_str;
 
         case (instr[15:14])
                 2'b00: begin //Memory operations
                     if (instr[13] == 1'b0) begin
                         // LD   Rd, offset(Rb)    ; Rd ← MEM[Rb + offset]
-                        instr_str = $sformatf("LOAD R%0d, [R%0d + %0d]  |||||  MEM[%0d] <= %0d", 
-                                                instr[11:9], instr[8:6], imm_se,  mem_addr, mem_data_out);
+                        instr_str = $sformatf("LOAD R%0d, [R%0d + %0d]  ", 
+                                                instr[12:10], instr[9:7], imm_se);
                     end else begin
-                        instr_str = $sformatf("STORE R%0d, [R%0d + %0d]  |||||  MEM[%0d] => %0d", 
-                                                instr[11:9], instr[8:6], imm_se, mem_addr, mem_data_in);
+                        instr_str = $sformatf("STORE R%0d, [R%0d + %0d]  | WRITE", 
+                                                instr[12:10], instr[9:7], imm_se);
                     end
                 end 
                 2'b01: begin //ALU operations
@@ -171,8 +170,9 @@ module program_tracer(
         endcase
        
         // // Print cycle, PC, instruction, and register snapshot
-        $display("CYCLE %0d | PC=%0d | %s | REG=[R0=%0d,R1=%0d,R2=%0d,R3=%0d,R4=%0d,R5=%0d,R6=%0d,R7=%0d]",
-                 cycle, PC, instr_str, cpu_registers[0], cpu_registers[1], cpu_registers[2], cpu_registers[3], cpu_registers[4], cpu_registers[5], cpu_registers[6], cpu_registers[7]);
+        // $display("Instruction %b", instr);
+        $display("CYCLE %0d | PC=%0d | %b | %s | REG=[R0=%0d,R1=%0d,R2=%0d,R3=%0d,R4=%0d,R5=%0d,R6=%0d,R7=%0d]",
+                 cycle, PC, instr, instr_str, cpu_registers[0], cpu_registers[1], cpu_registers[2], cpu_registers[3], cpu_registers[4], cpu_registers[5], cpu_registers[6], cpu_registers[7]);
         cycle = cycle + 1;
     end
 endmodule
@@ -196,6 +196,9 @@ module ProgramMemory #(
     initial begin
         $display("Loading program from %s ...", FILE_PATH);
         $readmemb(FILE_PATH, mem);
+        // for (i=0;i< MEM_SIZE; i=i+1) begin
+        //     $display("%b", mem[i]);
+        // end
         #1;  // one delta or small time unit
         $display("Program loaded successfully.");
     end

@@ -2,14 +2,16 @@
 module CPU (
     input         clk,
     input         rst,
-    input [15:0] Instruction,   // instruction fetched from memory
-    input [15:0] mem_data_in,   // data read from memory
+    input reg [15:0] Instruction,       // instruction fetched from ROM
+    input [15:0] mem_data_in,       // data read from RAM
 
-    output [15:0] pc_addr_out,   // current program counter
-    output [15:0] mem_addr,    // address for memory access
-    output [15:0] mem_data_write,  // data to write to memory
-    output        mem_write_enabled       // memory write enable
+    output [15:0] pc_addr_out,      // current PC address
+    output [15:0] mem_addr,         // address for RAM access
+    output [15:0] mem_data_write,       // data to write to RAM
+    output        mem_write_enabled       // RAM write enable?
 );
+
+reg [15:0] instruction_reg ;
 
 // output declaration of module RegisterFile
 wire [15:0] data_reg_a;
@@ -43,8 +45,8 @@ PC u_PC(
 );
 
 //COMO acomodar las salidas del decoder con respecto a las operaciones en la memoria y el alu
-decoder u_decoder(
-    .instr              	(Instruction         ),
+Decoder u_decoder(
+    .instr              	(instruction_reg     ),
     .alu_ctrl           	(alu_ctrl            ),
     .reg_dst            	(addr_reg_dst        ),
     .reg_rs1            	(addr_reg_a          ),
@@ -92,6 +94,13 @@ alu16 u_alu16(
 
 assign mem_addr = alu_result;
 assign mem_data_write = data_reg_b;
+
+always @(posedge clk or posedge rst) begin
+    if(rst)
+        instruction_reg <= 16'b0;
+    else
+        instruction_reg <= Instruction;
+end
 
 endmodule
 

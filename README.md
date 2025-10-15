@@ -17,10 +17,11 @@ LOADI: 15:14       13:10        9         8:6          5:0
 
 ##### For JUMP operations
 
-[15:14]:01 = jump class, [13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, [4:2]: 000 = regDst
+[15:14]:10 = jump class, [13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, [4:2]: 000 = regDst
 
+[15:14]:10 = jump class, [13:11]: 110 = unconditional jump, [10:8]: 000 = restReg, [7:0] unused bits
 `
-110: JMP regDst -> unconditional
+110: JMP regDst -> unconditional 
 000: JEQ a b dest -> if a == b
 001: JNQ a b dest -> if a != b
 010: JGT a b dest -> if a > b

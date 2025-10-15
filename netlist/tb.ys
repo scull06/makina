@@ -1,4 +1,0 @@
-read_verilog -sv -formal -overwrite {workspace}/src/alu.v
-read_verilog -sv -formal -overwrite {workspace}/src/alu_tb.v
-design -reset-vlog; proc;
-write_json {workspace}/netlist/tb.json

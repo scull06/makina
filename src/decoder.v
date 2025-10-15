@@ -8,8 +8,8 @@
 11 → Reserved (future expansion, system calls, multiply/divide, etc.)
 
 */
-module decoder (
-   input [15:0] instr,
+module Decoder (
+   input wire [15:0] instr,
 
    //ALU control
    output reg [3:0] alu_ctrl,
@@ -48,7 +48,7 @@ always @(*) begin
             // decode fields: bit 13 = R/W, bits 12:10 = reg, 9:7 = base, 6:0 = offset
             reg_dst = instr[12:10];
             reg_rs1 = instr[9:7];
-            imm_se = {{9{instr[6]}}, instr[6:0]}; //the sign extension looks at the MSB of the immediate for replication
+            imm_se = {{9{1'b0}}, instr[6:0]}; //the sign extension looks at the MSB of the immediate for replication
 
             alu_ctrl = ALU_ADD;
             alu_src_imm = 1'b1; //must pass imm_se to alu B
@@ -78,7 +78,7 @@ always @(*) begin
             reg_write = 1'b1;
 
             if(alu_ctrl ==  4'b1010)begin
-                imm_se = {{10{instr[5]}}, instr[5:0]};
+                imm_se = {{10{1'b0}}, instr[5:0]};
                 alu_src_imm = 1'b1; //must pass imm_se to alu B
             end
              
