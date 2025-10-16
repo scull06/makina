@@ -93,14 +93,11 @@ always @(*) begin
                 3'b110: begin //JMP regDst -> unconditional
                     comparator_ctrl = instr[13:11];
                     reg_dst = instr[4:2];
-                    reg_rs1 = 0;
-                    reg_rs2 = 0;
                 end
                 default: begin //JUMP_TYPE a b dest
                     comparator_ctrl = instr[13:11];
                     reg_rs1 = instr[10:8];
                     reg_rs2 = instr[7:5];
-                    reg_dst = instr[4:2]; 
                 end
             endcase
         end

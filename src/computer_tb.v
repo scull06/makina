@@ -1,0 +1,51 @@
+module computer_tb;
+    reg clk = 1'b0;
+    reg rst;
+
+    Computer u_Computer(
+        .clk 	(clk  ),
+        .rst 	(rst  )
+    );
+    
+    program_tracer tracer(
+        .clk(clk),
+        .PC(u_Computer.pc_addr),
+        .instr(u_Computer.instruction),
+        .cpu_registers(u_Computer.u_CPU.u_RegisterFile.cpu_registers),
+        .mem_addr(u_Computer.mem_addr),
+        .mem_data_in(u_Computer.cur_memory_data),
+        .mem_data_out(u_Computer.mem_data_write),
+        .mem_write(u_Computer.mem_write_enabled),
+        .mem_read(u_Computer.u_CPU.u_decoder.mem_read)
+    );
+
+    integer cycle = 0; //Parameter for the number of instructions to be executed ....
+
+    initial begin
+        $display("Starting Computer simulation");
+
+        u_Computer.u_RAM.memory[0]= 16'd5;
+        u_Computer.u_RAM.memory[1]= 16'd3;
+        //initialization of program and memory
+        $readmemb("tests/p0", u_Computer.u_ROM.memory);
+
+        #100
+        clk = 1'b0;
+        #10
+        rst = 1'b1;
+        #50
+        rst = 1'b0;
+        forever #20 clk = ~clk;
+    end
+
+    always @(posedge clk) begin
+        cycle = cycle + 1;
+        if (cycle == 10) begin
+            for (cycle = 0; cycle < 10; cycle=cycle+1) begin
+                $display("%d %b", cycle, u_Computer.u_RAM.memory[cycle]);
+            end
+            $display("End to Computer test simulation...");
+            $finish;
+         end
+    end
+endmodule

@@ -1,10 +1,8 @@
 module comparator (
     input wire [2:0]  jump_operator,
-    input wire [15:0] pc_destination_addr,
     input wire [15:0] operand_a,
     input wire [15:0] operand_b,
-    output reg  pc_write_enabled, //wether the PC should receive the input address
-    output reg [15:0] pc_destination_addr_out
+    output reg  pc_write_enabled //wether the PC should receive the input address
 );
 
 reg branch_taken;
@@ -12,10 +10,6 @@ reg branch_taken;
 always @(*) begin
     branch_taken = 1'b0;
     pc_write_enabled = 1'b0;
-    pc_destination_addr_out = 16'b0;
-
-    // $display("Jump op: %b | branch taken : %b", jump_operator, branch_taken);
-    
     case (jump_operator)
         3'b110: branch_taken = 1'b1;                        //JMP regDst -> unconditional 
         3'b000: branch_taken = (operand_a == operand_b);    //JEQ a b dest -> if a == b 
@@ -29,7 +23,6 @@ always @(*) begin
      
     if(branch_taken)begin
         pc_write_enabled = 1'b1;
-        pc_destination_addr_out = pc_destination_addr;
     end
         
 end
