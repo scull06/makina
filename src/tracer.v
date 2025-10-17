@@ -77,8 +77,8 @@ module program_tracer(
        
         // // Print cycle, PC, instruction, and register snapshot
         // $display("Instruction %b", instr);
-        $display("CYCLE %0d:0%d | PC=%0d | %b | %s | REG=[R0=%0d,R1=%0d,R2=%0d,R3=%0d,R4=%0d,R5=%0d,R6=%0d,R7=%0d]",
-                 cycle, stage , PC, instr, instr_str, cpu_registers[0], cpu_registers[1], cpu_registers[2], cpu_registers[3], cpu_registers[4], cpu_registers[5], cpu_registers[6], cpu_registers[7]);
+        // $display("CYCLE %0d:0%d | PC=%0d | %b | %s || R0=%0d, R1=%0d, R2=%0d, R3=%0d, R4=%0d, R5=%0d, R6=%0d, R7=%0d",
+                //  cycle, stage , PC, instr, instr_str, cpu_registers[0], cpu_registers[1], cpu_registers[2], cpu_registers[3], cpu_registers[4], cpu_registers[5], cpu_registers[6], cpu_registers[7]);
         cycle = cycle + 1;
     end
 endmodule

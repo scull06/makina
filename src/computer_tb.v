@@ -24,10 +24,10 @@ module computer_tb;
     initial begin
         $display("Starting Computer simulation");
 
-        u_Computer.u_RAM.memory[0]= 16'd5;
-        u_Computer.u_RAM.memory[1]= 16'd3;
+        // u_Computer.u_RAM.memory[0]= 16'd5;
+        // u_Computer.u_RAM.memory[1]= 16'd3;
         //initialization of program and memory
-        $readmemb("tests/p0", u_Computer.u_ROM.memory);
+        $readmemb("tests/p1", u_Computer.u_ROM.memory);
 
         #100
         clk = 1'b0;
@@ -40,7 +40,7 @@ module computer_tb;
 
     always @(posedge clk) begin
         cycle = cycle + 1;
-        if (cycle == 32) begin
+        if (cycle == 100) begin
             for (cycle = 0; cycle < 10; cycle=cycle+1) begin
                 $display("%d %b", cycle, u_Computer.u_RAM.memory[cycle]);
             end

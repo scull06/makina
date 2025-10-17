@@ -9,7 +9,10 @@ module PLNCPU (
     output reg pmem_write
 );
 
+
+
 // State encodings
+localparam ZERO              = 3'b111;
 localparam STAGE_FETCH       = 3'b000;
 localparam STAGE_DECODE      = 3'b001;
 localparam STAGE_EXECUTE     = 3'b010;
@@ -21,11 +24,10 @@ reg [2:0] stage;
 
 //IF context
 reg [15:0] if_instruction;
-reg [1:0] if_instr_class;
 reg [1:0] id_instr_class;
 reg [1:0] ex_instr_class;
-reg [1:0] em_instr_class;
-reg [1:0] emw_instr_class;
+reg [1:0] mem_instr_class;
+reg [1:0] memw_instr_class;
 reg [1:0] wb_instr_class;
 
 reg [15:0] if_pc;
@@ -61,7 +63,7 @@ wire alu_src_imm;
 wire dmem_write;
 wire reg_write_back_sel;
 wire [2:0] comparator_ctrl;
-wire [1:0] iclass;
+wire [1:0] instruction_class;
 
 Decoder udec(
     .instr              	(instr_in            ),
@@ -75,7 +77,7 @@ Decoder udec(
     .mem_write          	(dmem_write          ),
     .reg_write_back_sel 	(reg_write_back_sel  ),
     .comparator_ctrl    	(comparator_ctrl     ),
-    .instr_class(iclass)
+    .instr_class            (instruction_class   )
 );
 
 
@@ -143,6 +145,11 @@ reg [15:0] mem_data_out;
 reg [15:0] mem_data_in_saved;
 reg mem_write;
 
+assign pmem_addr_out = mem_addr_out; 
+assign pmem_data_out = mem_data_out; 
+assign pmem_write = mem_write;
+
+
 reg [2:0] mem_jump_ctrl;
 reg mem_pc_wr_enable;
 reg mem_reg_write;
@@ -152,12 +159,14 @@ reg mem_reg_write_back_sel;
 //Instruction driver
 always @(posedge clk or posedge rst) begin
     if (rst) begin
-        //reset instruction and PC         
+        //reset instruction and PC 
         if_instruction <= 0;
         if_pc <= 0;
     end else begin
         case (stage)
-
+            ZERO: begin
+                 stage <= STAGE_FETCH;
+            end
             STAGE_FETCH: begin //INSTRUCION FETCH
                 if_instruction <= instr_in;
                 stage <= STAGE_DECODE;
@@ -179,6 +188,11 @@ always @(posedge clk or posedge rst) begin
                 //mem control
                 id_mem_write <= dmem_write;
 
+                //I must pass the instruction class across all stages
+                id_instr_class <= instruction_class;
+
+                $display("%0d@ [DEC] INSTR: %b | rDest:%b | rA:%b |rB:%b | aluCTRL:%b | alusrcimm:%b", if_pc, if_instruction, reg_dst, reg_rs1, reg_rs2, alu_ctrl, alu_src_imm);
+
                 stage <= STAGE_EXECUTE;
             end
 
@@ -198,7 +212,6 @@ always @(posedge clk or posedge rst) begin
                 //jump control
                 ex_jump_ctrl <= id_jump_ctrl;
 
-                $display("EX pc_w?=%b jmp_ctrl=%b", pc_write_enabled,id_jump_ctrl);
 
                 ex_pc_wr_enable <= pc_write_enabled;
                 //reg control
@@ -206,6 +219,12 @@ always @(posedge clk or posedge rst) begin
                 ex_reg_write_back_sel <= id_reg_write_back_sel;
                 //mem control
                 ex_mem_write <= id_mem_write;
+
+                //instr class
+                ex_instr_class <= id_instr_class;
+
+                $display("%0d@ [EXEC] aluCTRL:%b |  A:%b | B:%b | InputB:%b | alu_res:%b | destAddr:%b", 
+                                        id_pc, id_alu_ctrl, id_regA, id_regB, alu_input_B, alu_result, id_addr_regDst);
 
                 stage <= STAGE_MEMORY;
             end
@@ -222,16 +241,19 @@ always @(posedge clk or posedge rst) begin
                 mem_reg_write <= ex_reg_write;
                 mem_reg_write_back_sel <= ex_reg_write_back_sel;
 
-                //asynchronously I connect the ports of the memory to the latched registers
-                pmem_addr_out = mem_addr_out;
-                pmem_data_out = mem_data_out;
-                pmem_write = mem_write;
+                //instr class
+                mem_instr_class <= ex_instr_class;
+
+                $display("%0d@ [MEM] Addr=%b | dataOut??=%b IF(%b)", ex_pc, ex_alu_result, ex_regB, ex_mem_write);
+
 
                 stage <= STAGE_MEMORY_WAIT;
             end
 
             STAGE_MEMORY_WAIT: begin
-                mem_data_in_saved <= pmem_data_in;
+                //pmem_data_in is still loading from memory;
+                //instr class
+                memw_instr_class <= mem_instr_class;
                 // in this cycle, do nothing.
                 // just allow for the memory 
                 // to bring the values or write the given one
@@ -239,11 +261,13 @@ always @(posedge clk or posedge rst) begin
             end
 
             STAGE_WRITEBACK: begin
+
+                $display("%0d@ [WRB] pmem_data_in=%b |  | mem_addr:%b | data_sent:%b", ex_pc,  pmem_data_in, mem_addr_out, mem_data_out);
                 rf_write_enable <= mem_reg_write;
                 //mem_addr_out is an alias for the ex_alu_out on the memory stage
-                rf_write_data <= (mem_reg_write_back_sel) ? mem_data_in_saved : mem_addr_out; 
+                rf_write_data <= (mem_reg_write_back_sel) ? pmem_data_in : mem_addr_out; 
 
-                if(mem_pc_wr_enable)begin
+                if(mem_pc_wr_enable && memw_instr_class == 2'b10)begin
                      if(mem_jump_ctrl) begin
                           if_pc <= if_pc + 1; //assumes an unconditional jump doing the actual jump!
                      end else begin
@@ -258,7 +282,10 @@ always @(posedge clk or posedge rst) begin
             end
 
 
-            default: stage <= STAGE_FETCH; // safety fallback
+            default: begin
+                $display("discarding stage %b", stage);
+                stage <= STAGE_FETCH; // safety fallback
+            end
         endcase
     end
 end
