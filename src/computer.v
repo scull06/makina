@@ -29,14 +29,21 @@ RAM u_RAM(
     .memory_out    	(cur_memory_data    )
 );
 
-CPU u_CPU(
-    .clk               	(clk                ),
-    .rst               	(rst                ),
-    .Instruction       	(instruction        ),
-    .mem_data_in       	(cur_memory_data    ),
-    .pc_addr_out       	(pc_addr            ),
-    .mem_addr          	(mem_addr           ),
-    .mem_data_write    	(mem_data_write     ),
-    .mem_write_enabled 	(mem_write_enabled  )
-);    
+// output declaration of module MCPU
+reg [15:0] mem_data_out;
+reg [15:0] mem_addr_out;
+reg mem_write;
+reg mem_read;
+
+PLNCPU u_MCPU(
+    .clk          	(clk                ),
+    .rst          	(rst                ),
+    .instr_in     	(instruction        ),
+    .pmem_data_in   (cur_memory_data    ),
+    .pc           	(pc_addr            ),
+    .pmem_data_out 	(mem_data_write     ),
+    .pmem_addr_out 	(mem_addr           ),
+    .pmem_write    	(mem_write_enabled  )
+);
+   
 endmodule

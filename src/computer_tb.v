@@ -11,12 +11,12 @@ module computer_tb;
         .clk(clk),
         .PC(u_Computer.pc_addr),
         .instr(u_Computer.instruction),
-        .cpu_registers(u_Computer.u_CPU.u_RegisterFile.cpu_registers),
+        .cpu_registers(u_Computer.u_MCPU.u_RegisterFile.cpu_registers),
         .mem_addr(u_Computer.mem_addr),
         .mem_data_in(u_Computer.cur_memory_data),
         .mem_data_out(u_Computer.mem_data_write),
         .mem_write(u_Computer.mem_write_enabled),
-        .mem_read(u_Computer.u_CPU.u_decoder.mem_read)
+        .stage(u_Computer.u_MCPU.stage)
     );
 
     integer cycle = 0; //Parameter for the number of instructions to be executed ....
@@ -40,7 +40,7 @@ module computer_tb;
 
     always @(posedge clk) begin
         cycle = cycle + 1;
-        if (cycle == 10) begin
+        if (cycle == 32) begin
             for (cycle = 0; cycle < 10; cycle=cycle+1) begin
                 $display("%d %b", cycle, u_Computer.u_RAM.memory[cycle]);
             end

@@ -1,0 +1,10 @@
+read_verilog -sv -formal -overwrite {workspace}/src/computer.v
+read_verilog -sv -formal -overwrite {workspace}/src/memory.v
+read_verilog -sv -formal -overwrite {workspace}/src/ms_cpu.v
+read_verilog -sv -formal -overwrite {workspace}/src/decoder.v
+read_verilog -sv -formal -overwrite {workspace}/src/alu.v
+read_verilog -sv -formal -overwrite {workspace}/src/comparator.v
+read_verilog -sv -formal -overwrite {workspace}/src/tracer.v
+read_verilog -sv -formal -overwrite {workspace}/src/computer_tb.v
+design -reset-vlog; proc;
+write_json {workspace}/netlist/computer_tb.json

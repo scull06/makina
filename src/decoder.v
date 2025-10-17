@@ -20,14 +20,18 @@ module Decoder (
    output reg  reg_write,
    output reg  alu_src_imm, //this will be the ALU immediate sign extended input whenever it is needed
    //Memory control
-   output reg  mem_read,
    output reg  mem_write,
    output reg  reg_write_back_sel, //Selector for where to write from: MEM => 1; or from ALU result => 0 
    //Branch control
-   output reg [2:0] comparator_ctrl
+   output reg [2:0] comparator_ctrl,
+   //Instruction class
+   output wire [1:0] instr_class
 );
 
 localparam ALU_ADD = 4'b0000;
+
+//assigning the instruction class
+assign instr_class = instr[15:14];
 
 always @(*) begin
     //Default everything to 0!
@@ -36,13 +40,11 @@ always @(*) begin
     reg_dst = 3'b0;    
     reg_rs1 = 3'b0;    
     reg_rs2 = 3'b0;
-    mem_read = 1'b0;
     mem_write = 1'b0;
     reg_write = 1'b0;
     reg_write_back_sel = 1'b0;
     alu_src_imm = 1'b0;
     
-
     case (instr[15:14])
         2'b00: begin //Memory operations
             // decode fields: bit 13 = R/W, bits 12:10 = reg, 9:7 = base, 6:0 = offset
@@ -55,13 +57,11 @@ always @(*) begin
 
             if (instr[13] == 1'b0) begin
                 // LD   Rd, offset(Rb)    ; Rd ← MEM[Rb + offset]
-                mem_read = 1'b1;
                 mem_write = 1'b0;
                 reg_write_back_sel = 1'b1;
                 reg_write = 1'b1;
             end else begin
                 // ST   Rs, offset(Rb)    ; MEM[Rb + offset] ← Rs
-                mem_read = 1'b0; //dissable memory read
                 mem_write = 1'b1; //enable memory write
                 reg_write_back_sel = 1'b0; // the dst register will not be written; so ignore it
                 reg_write = 1'b0; //no register will be written
