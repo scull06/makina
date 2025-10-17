@@ -25,16 +25,18 @@ module Decoder (
    //Branch control
    output reg [2:0] comparator_ctrl,
    //Instruction class
-   output wire [1:0] instr_class
+   output reg [1:0] instr_class
 );
 
 localparam ALU_ADD = 4'b0000;
 
-//assigning the instruction class
-assign instr_class = instr[15:14];
 
 always @(*) begin
+    //assigning the instruction class
+
+    instr_class = instr[15:14];
     //Default everything to 0!
+
     alu_ctrl = 4'b0000;
     comparator_ctrl = 3'b000;
     reg_dst = 3'b0;    

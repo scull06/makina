@@ -49,22 +49,22 @@ reg id_reg_write_back_sel;
 //mem control
 reg id_mem_write;
 
-// output declaration of module Decoder
-// Since decoder is combinationial I can just write to the regs of the next stage right after the decoding
-reg [3:0] alu_ctrl;
-reg [2:0] reg_dst;
-reg [2:0] reg_rs1;
-reg [2:0] reg_rs2;
-reg [15:0] imm_se;
-reg reg_write;
-reg alu_src_imm;
-reg dmem_write;
-reg reg_write_back_sel;
-reg [2:0] comparator_ctrl;
-wire [1:0] instr_class;
+// // output declaration of module Decoder
+// // Since decoder is combinationial I can just write to the regs of the next stage right after the decoding
+wire [3:0] alu_ctrl;
+wire [2:0] reg_dst;
+wire [2:0] reg_rs1;
+wire [2:0] reg_rs2;
+wire [15:0] imm_se;
+wire reg_write;
+wire alu_src_imm;
+wire dmem_write;
+wire reg_write_back_sel;
+wire [2:0] comparator_ctrl;
+wire [1:0] iclass;
 
-Decoder u_Decoder(
-    .instr              	(if_instruction      ),
+Decoder udec(
+    .instr              	(instr_in            ),
     .alu_ctrl           	(alu_ctrl            ),
     .reg_dst            	(reg_dst             ),
     .reg_rs1            	(reg_rs1             ),
@@ -75,8 +75,9 @@ Decoder u_Decoder(
     .mem_write          	(dmem_write          ),
     .reg_write_back_sel 	(reg_write_back_sel  ),
     .comparator_ctrl    	(comparator_ctrl     ),
-    .instr_class    	    (instr_class     )
+    .instr_class(iclass)
 );
+
 
 reg rf_write_enable;
 reg [15:0] rf_write_data;
@@ -115,7 +116,7 @@ reg ex_mem_write;
 
 
 // output declaration of module alu16
-reg [15:0] alu_result;
+wire [15:0] alu_result;
 wire [15:0] alu_input_B = (id_alu_src_imm) ? id_imm : id_regB;
 
 alu16 u_alu16(
@@ -126,7 +127,7 @@ alu16 u_alu16(
 );
 
 // output declaration of module comparator
-reg pc_write_enabled;
+wire pc_write_enabled;
 
 comparator u_comparator(
     .jump_operator    	(id_jump_ctrl      ),
@@ -178,9 +179,6 @@ always @(posedge clk or posedge rst) begin
                 //mem control
                 id_mem_write <= dmem_write;
 
-                //instruction class
-                // id_instr_class <=  instr_class;
-
                 stage <= STAGE_EXECUTE;
             end
 
@@ -200,7 +198,7 @@ always @(posedge clk or posedge rst) begin
                 //jump control
                 ex_jump_ctrl <= id_jump_ctrl;
 
-                // $display("EX pc_w?=%b jmp_ctrl=%b", pc_write_enabled,id_jump_ctrl);
+                $display("EX pc_w?=%b jmp_ctrl=%b", pc_write_enabled,id_jump_ctrl);
 
                 ex_pc_wr_enable <= pc_write_enabled;
                 //reg control
