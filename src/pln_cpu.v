@@ -40,7 +40,7 @@ reg [15:0] id_regA;
 reg [15:0] id_regB;
 reg [2:0]  id_addr_regDst;
  //alu control
-reg [3:0]  id_alu_ctrl;
+reg [4:0]  id_alu_ctrl;
 reg [15:0] id_imm;
 reg [3:0]  id_alu_src_imm;
 //jump control
@@ -53,7 +53,7 @@ reg id_mem_write;
 
 // // output declaration of module Decoder
 // // Since decoder is combinationial I can just write to the regs of the next stage right after the decoding
-wire [3:0] alu_ctrl;
+wire [4:0] alu_ctrl;
 wire [2:0] reg_dst;
 wire [2:0] reg_rs1;
 wire [2:0] reg_rs2;
@@ -62,7 +62,7 @@ wire reg_write;
 wire alu_src_imm;
 wire dmem_write;
 wire reg_write_back_sel;
-wire [2:0] comparator_ctrl;
+wire [2:0] jump_ctrl;
 wire [1:0] instruction_class;
 
 Decoder udec(
@@ -76,7 +76,7 @@ Decoder udec(
     .alu_src_imm        	(alu_src_imm         ),
     .mem_write          	(dmem_write          ),
     .reg_write_back_sel 	(reg_write_back_sel  ),
-    .comparator_ctrl    	(comparator_ctrl     ),
+    .jump_ctrl    	        (jump_ctrl           ),
     .instr_class            (instruction_class   )
 );
 
@@ -104,7 +104,7 @@ reg [2:0]  ex_addr_regDst;
 reg [15:0] ex_imm;
 
  //alu control
-reg [3:0]  ex_alu_ctrl;
+reg [4:0]  ex_alu_ctrl;
 reg [15:0] ex_alu_result;
 reg [3:0]  ex_alu_src_imm;
 //jump control
@@ -128,13 +128,13 @@ alu16 u_alu16(
     .Result  	(alu_result  )
 );
 
-// output declaration of module comparator
+// output declaration of module jumper
 wire pc_write_enabled;
 
-comparator u_comparator(
+jumper u_comparator(
     .jump_operator    	(id_jump_ctrl      ),
-    .operand_a        	(id_regA           ),
-    .operand_b        	(id_regB           ),
+    .test_value        	(id_regA           ),
+    .dest_address       (id_regB           ),
     .pc_write_enabled 	(pc_write_enabled  )
 );
 
@@ -143,6 +143,8 @@ comparator u_comparator(
 reg [15:0] mem_addr_out;
 reg [15:0] mem_data_out;
 reg [15:0] mem_data_in_saved;
+reg [15:0] mem_regA;
+reg [15:0] mem_regB;
 reg mem_write;
 
 assign pmem_addr_out = mem_addr_out; 
@@ -181,7 +183,7 @@ always @(posedge clk or posedge rst) begin
                 id_imm <= imm_se;
                 id_alu_src_imm <= alu_src_imm;
                 //jump control
-                id_jump_ctrl <= comparator_ctrl;
+                // id_jump_ctrl <= jump_ctrl;
                 //reg control
                 id_reg_write <= reg_write;
                 id_reg_write_back_sel <= reg_write_back_sel;
@@ -192,6 +194,9 @@ always @(posedge clk or posedge rst) begin
                 id_instr_class <= instruction_class;
 
                 $display("%0d@ [DEC] INSTR: %b | rDest:%b | rA:%b |rB:%b | aluCTRL:%b | alusrcimm:%b", if_pc, if_instruction, reg_dst, reg_rs1, reg_rs2, alu_ctrl, alu_src_imm);
+                $display("%0d@ || R0=%0d, R1=%0d, R2=%0d, R3=%0d, R4=%0d, R5=%0d, R6=%0d, R7=%0d", if_pc,
+                   u_RegisterFile.cpu_registers[0], u_RegisterFile.cpu_registers[1], u_RegisterFile.cpu_registers[2], u_RegisterFile.cpu_registers[3], 
+                   u_RegisterFile.cpu_registers[4], u_RegisterFile.cpu_registers[5], u_RegisterFile.cpu_registers[6], u_RegisterFile.cpu_registers[7]);
 
                 stage <= STAGE_EXECUTE;
             end
@@ -235,6 +240,9 @@ always @(posedge clk or posedge rst) begin
                 mem_data_out <= ex_regB;
                 mem_write <= ex_mem_write;
 
+                mem_regA <=  ex_regA;
+                mem_regB <=  ex_regB;
+
                 mem_jump_ctrl <= ex_jump_ctrl;
                 mem_pc_wr_enable <= ex_pc_wr_enable;
 
@@ -267,16 +275,10 @@ always @(posedge clk or posedge rst) begin
                 //mem_addr_out is an alias for the ex_alu_out on the memory stage
                 rf_write_data <= (mem_reg_write_back_sel) ? pmem_data_in : mem_addr_out; 
 
-                if(mem_pc_wr_enable && memw_instr_class == 2'b10)begin
-                     if(mem_jump_ctrl) begin
-                          if_pc <= if_pc + 1; //assumes an unconditional jump doing the actual jump!
-                     end else begin
-                          if_pc <= if_pc + 2; //to the instruction after the next instruction!
-                          //a comparison instruction MUST be followed by a unconditional jump!
-                     end
-                end else begin
+                if(mem_pc_wr_enable && mem_jump_ctrl)
+                          if_pc <= mem_regB; //to the instruction after the next instruction!
+                 else 
                     if_pc <= if_pc + 1; // no jump;
-                end
 
                 stage <= STAGE_FETCH;
             end

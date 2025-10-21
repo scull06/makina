@@ -12,7 +12,7 @@ module Decoder (
    input wire [15:0] instr,
 
    //ALU control
-   output reg [3:0] alu_ctrl,
+   output reg [4:0] alu_ctrl,
    output reg [2:0] reg_dst, //used for alu out, pc jumps and memory ops st and ld
    output reg [2:0] reg_rs1,
    output reg [2:0] reg_rs2,
@@ -23,12 +23,12 @@ module Decoder (
    output reg  mem_write,
    output reg  reg_write_back_sel, //Selector for where to write from: MEM => 1; or from ALU result => 0 
    //Branch control
-   output reg [2:0] comparator_ctrl,
+   output reg [2:0] jump_ctrl,
    //Instruction class
    output reg [1:0] instr_class
 );
 
-localparam ALU_ADD = 4'b0000;
+localparam ALU_ADD = 5'b00000;
 
 
 always @(*) begin
@@ -37,8 +37,8 @@ always @(*) begin
     instr_class = instr[15:14];
     //Default everything to 0!
 
-    alu_ctrl = 4'b0000;
-    comparator_ctrl = 3'b000;
+    alu_ctrl = 5'b00000;
+    jump_ctrl = 3'b111; //nop
     reg_dst = 3'b0;    
     reg_rs1 = 3'b0;    
     reg_rs2 = 3'b0;
@@ -72,14 +72,14 @@ always @(*) begin
 
         end
         2'b01: begin //ALU operations
-            // decode fields: bit 13:10 = alu-op, UNUSED: 9 bits 8:6 = dst, 5:3 = reg_a, 2:0 = reg_b
-            alu_ctrl = instr[13:10];
+            // decode fields: bit 13:10 = alu-op, bits 8:6 = dst, 5:3 = reg_a, 2:0 = reg_b
+            alu_ctrl = instr[13:9];
             reg_dst = instr[8:6];
             reg_rs1 = instr[5:3];
             reg_rs2 = instr[2:0];
             reg_write = 1'b1;
 
-            if(alu_ctrl ==  4'b1010)begin
+            if(alu_ctrl ==  5'b01010)begin
                 imm_se = {{10{1'b0}}, instr[5:0]};
                 alu_src_imm = 1'b1; //must pass imm_se to alu B
             end
@@ -87,17 +87,13 @@ always @(*) begin
         end
         2'b10: begin //JUMP operations
             alu_src_imm = 1'b0; //must pass imm_se to alu B
-            //[13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, [4:2]: 000 = regDst
+            //[13:11]: 000 = condition, [10:8]: 000 = regA, [7:5]: 000 = regB, 
             case (instr[13:11])
                 3'b111: begin
                     //NOP
                 end
-                3'b110: begin //JMP regDst -> unconditional
-                    comparator_ctrl = instr[13:11];
-                    reg_dst = instr[4:2];
-                end
                 default: begin //JUMP_TYPE a b dest
-                    comparator_ctrl = instr[13:11];
+                    jump_ctrl = instr[13:11];
                     reg_rs1 = instr[10:8];
                     reg_rs2 = instr[7:5];
                 end

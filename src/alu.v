@@ -2,22 +2,29 @@
 module alu16 (
     input wire [15:0] A,
     input wire [15:0] B,
-    input wire [3:0] ALUCtrl,
+    input wire [4:0] ALUCtrl,
     output reg [15:0] Result
 );
 
 always @(*) begin
     case (ALUCtrl)
-    4'b0000 : Result = A + B; //ADD
-    4'b0001 : Result = A - B; //SUB
-    4'b0010 : Result = A & B; //AND
-    4'b0011 : Result = A | B; //OR
-    4'b0100 : Result = A ^ B; //XOR
-    4'b0101 : Result = A * B; //MUL
-    4'b0111 : Result = A / B; //DIV
-    4'b1000 : Result = ~A;    //NOT
-    4'b1001 : Result = A % B; //MOD
-    4'b1010 : Result = B;     //LDI
+    5'b00000 : Result = A + B;      //ADD
+    5'b00001 : Result = A - B;      //SUB
+    5'b00010 : Result = A & B;      //AND
+    5'b00011 : Result = A | B;      //OR
+    5'b00100 : Result = A ^ B;      //XOR
+    5'b00101 : Result = A * B;      //MUL
+    5'b00111 : Result = A / B;      //DIV
+    5'b01000 : Result = ~A;         //NOT
+    5'b01001 : Result = A % B;      //MOD
+    5'b01010 : Result = B;          //LDI
+    5'b01100 : Result = A == B;     //CEQ a b
+    5'b01101 : Result = A != B;     //CNQ a b
+    5'b01110 : Result = A > B;      //CGT a b
+    5'b01111 : Result = A < B;      //CLT a b
+    5'b10000 : Result = A >= B;     //CGE a b
+    5'b10001 : Result = A <= B;     //CLE a b
+
         default: Result = 16'b0; 
     endcase
 end
