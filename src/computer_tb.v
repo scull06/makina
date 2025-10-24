@@ -27,7 +27,7 @@ module computer_tb;
         // u_Computer.u_RAM.memory[0]= 16'd1125;
         // u_Computer.u_RAM.memory[1]= 16'd115;
         //initialization of program and memory
-        $readmemb("tests/p1", u_Computer.u_ROM.memory);
+        $readmemb("tests/p2", u_Computer.u_ROM.memory);
 
         #100
         clk = 1'b0;
@@ -40,7 +40,7 @@ module computer_tb;
 
     always @(posedge clk) begin
         cycle = cycle + 1;
-        if (cycle == 40) begin
+        if (cycle == 50) begin
             $display("Memory Dump \n_________");
             for (cycle = 0; cycle < 10; cycle=cycle+1) begin
                 $display("%d %0d", cycle, u_Computer.u_RAM.memory[cycle]);

@@ -44,3 +44,43 @@ bit   15:14          13         12:10            9:7        6:0
 ### Running tests and 
 
 Run `iverilog -o alu_tb.vvp alu_tb.v alu.v` on the src folder for building the .vvp file. Then run vvp wit the *.vvp generated file for testing.
+
+
+### Documentation
+
+
+#### ALU instruction format
+ALU operations expect 16 bit operands and all operations operate on three of the 8 registers of the machine.
+
+```asm
+ADD Dst A B
+SUB Dst A B
+AND Dst A B
+OR  Dst A B
+XOR Dst A B
+MUL Dst A B
+DIV Dst A B
+NOT Dst A
+MOD Dst A B
+LDI Dst B   
+CEQ Dst A B
+CNQ Dst A B
+CGT Dst A B
+CLT Dst A B
+CGE Dst A B
+CLE Dst A B
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+

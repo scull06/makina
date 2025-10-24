@@ -1,4 +1,4 @@
-module PLNCPU (
+module PLNCPUT (
     input clk,
     input rst,
     input wire [15:0] instr_in,          // instruction from ROM being processed
@@ -18,39 +18,63 @@ localparam STAGE_MEMORY      = 3'b011;
 localparam STAGE_MEMORY_WAIT = 3'b100;
 localparam STAGE_WRITEBACK   = 3'b101;
 
+
 reg [2:0] stage;
 
-//IF context
-reg [15:0] if_instruction;
-reg [1:0] id_instr_class;
-reg [1:0] ex_instr_class;
-reg [1:0] mem_instr_class;
-reg [1:0] memw_instr_class;
-reg [1:0] wb_instr_class;
+//Cycles of the pipeline which must equal the FSM's number of stages
+localparam CYCLES = 7;
 
-reg [15:0] if_pc;
-assign pc = if_pc;
+typedef struct packed {
+    //Pipeline table for PC 
+    reg [15:0] pc_tbl;
+    reg pc_wr_enable_tbl; 
+    //TODO: to be moved to assign place
+    
+    //Pipeline instruction register table
+    reg [15:0] instruction_tbl;
+    
+    //Pipeline table for instruction class
+    reg [1:0] instruction_class_tbl;
+    
+    //Pipeline tables for registers address A, B and Dst
+    reg [2:0] aReg_addr_tbl;
+    reg [2:0] bReg_addr_tbl;
+    reg [2:0] dstReg_addr_tbl;
+    
+    //Pipeline tables for registers value A and B
+    //Register dst is never read; therefore we do not have any value out of it.
+    reg [15:0] aReg_val_tbl;
+    reg [15:0] bReg_val_tbl;
+    
+    //Pipeline table for register write back flags
+    reg reg_write_tbl;
+    reg reg_write_back_sel_tbl;
+    
+    //Pipeline table for ALU control bits
+    reg [4:0]  alu_ctrl_tbl;
+    
+    //Pipeline table for ALU result value
+    reg [15:0] alu_result_tbl;
+    
+    //Pipeline table for ALU immediate
+    reg [15:0] alu_immediate_tbl;
+    //Pipeline table for alu source selector for input B.
+    reg [3:0]  alu_src_imm_tbl;
+    
+    //Pipeline table for JUMPs control bits
+    reg [2:0]  jump_ctrl_tbl;
+    
+    //Pipeline memory register tables
+    reg [15:0] mem_address_tbl;
+    reg [15:0] mem_data_out_tbl;
+    reg [15:0] mem_data_it_tbl;
+    reg mem_write_tbl;
 
+} reg_tbl;
 
-//DECODING context
-reg [15:0] id_pc;
-reg [15:0] id_regA;
-reg [15:0] id_regB;
-reg [2:0]  id_addr_regDst;
- //alu control
-reg [4:0]  id_alu_ctrl;
-reg [15:0] id_imm;
-reg [3:0]  id_alu_src_imm;
-//jump control
-reg [2:0]  id_jump_ctrl;
-//reg control
-reg id_reg_write;
-reg id_reg_write_back_sel;
-//mem control
-reg id_mem_write;
-
-// // output declaration of module Decoder
-// // Since decoder is combinationial I can just write to the regs of the next stage right after the decoding
+/* IMPLEMENTATION */
+// output declaration of module Decoder
+// Since decoder is combinationial I can just write to the regs of the next stage right after the decoding
 wire [4:0] alu_ctrl;
 wire [2:0] reg_dst;
 wire [2:0] reg_rs1;
@@ -78,11 +102,9 @@ Decoder udec(
     .instr_class            (instruction_class   )
 );
 
-
 reg rf_write_enable;
 reg [15:0] rf_write_data;
     
-
 RegisterFile u_RegisterFile(
     .clk           	(clk                ),
     .write_enabled 	(rf_write_enable    ),
@@ -94,18 +116,8 @@ RegisterFile u_RegisterFile(
     .out_reg_b     	(id_regB            )
 );
 
-// //EXECUTE context
-reg [15:0] ex_pc;
-reg [15:0] ex_regA;
-reg [15:0] ex_regB;
-reg [2:0]  ex_addr_regDst;
-reg [15:0] ex_imm;
 
- //alu control
-reg [4:0]  ex_alu_ctrl;
-reg [15:0] ex_alu_result;
-reg [3:0]  ex_alu_src_imm;
-//jump control
+
 reg [2:0]  ex_jump_ctrl;
 reg ex_pc_wr_enable;
 //reg control
@@ -113,7 +125,6 @@ reg ex_reg_write;
 reg ex_reg_write_back_sel;
 //mem control
 reg ex_mem_write;
-
 
 // output declaration of module alu16
 wire [15:0] alu_result;

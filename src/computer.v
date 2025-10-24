@@ -35,7 +35,7 @@ reg [15:0] mem_addr_out;
 reg mem_write;
 reg mem_read;
 
-PLNCPU u_MCPU(
+PLNCPUT u_MCPU(
     .clk          	(clk                ),
     .rst          	(rst                ),
     .instr_in     	(instruction        ),
