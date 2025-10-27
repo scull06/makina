@@ -13,20 +13,22 @@ module plncput (
     localparam reg [2:0] ZERO = 3'b000;
     localparam reg [2:0] STAGE_FETCH = 3'b001;
     localparam reg [2:0] STAGE_DECODE = 3'b010;
-    localparam reg [2:0] STAGE_EXECUTE = 3'b011;
-    localparam reg [2:0] STAGE_MEMORY = 3'b100;
-    localparam reg [2:0] STAGE_MEMORY_WAIT = 3'b101;
-    localparam reg [2:0] STAGE_WRITEBACK = 3'b110;
+    localparam reg [2:0] STAGE_REGISTER_READ = 3'b011;
+
+    localparam reg [2:0] STAGE_EXECUTE = 3'b100;
+    localparam reg [2:0] STAGE_MEMORY = 3'b101;
+    localparam reg [2:0] STAGE_MEMORY_WAIT = 3'b110;
+    localparam reg [2:0] STAGE_WRITEBACK = 3'b111;
 
 
     reg [2:0] stage;
 
     //Cycles of the pipeline which must equal the FSM's number of stages
-    localparam integer CYCLES = 7;
+    localparam  unsigned CYCLES = 8;
 
     //Pipeline table for PC
     reg [15:0] pc_tbl [0:CYCLES-1];
-    reg pc_wr_enable_tbl [0:CYCLES-1];
+    reg pc_wr_enable_tbl [0:(CYCLES-1)];
     //Pipeline instruction logicister table
     reg [15:0] instruction_tbl [0:CYCLES-1];
     //Pipeline table for instruction class
@@ -60,9 +62,6 @@ module plncput (
     reg mem_write_tbl[0:CYCLES-1];
 
 
-    // wire [15:0] alu_input_B = (id_alu_src_imm) ? id_imm : id_regB;
-
-
     // output declaration of module Decoder
     reg [4:0] alu_ctrl;
     reg [2:0] reg_dst;
@@ -77,45 +76,67 @@ module plncput (
     reg [1:0] instr_class;
 
     Decoder u_Decoder(
-                .instr              	(instruction_tbl[STAGE_FETCH]),
-                .alu_ctrl           	(alu_ctrl            ),
-                .reg_dst            	(reg_dst             ),
-                .reg_rs1            	(reg_rs1             ),
-                .reg_rs2            	(reg_rs2             ),
-                .imm_se             	(imm_se              ),
-                .reg_write          	(reg_write           ),
-                .alu_src_imm        	(alu_src_imm         ),
-                .mem_write          	(mem_write           ),
-                .reg_write_back_sel 	(reg_write_back_sel  ),
-                .jump_ctrl          	(jump_ctrl           ),
-                .instr_class        	(instr_class         )
+                .instr               (instruction_tbl[STAGE_FETCH]),
+                .alu_ctrl            (alu_ctrl            ),
+                .reg_dst             (reg_dst             ),
+                .reg_rs1             (reg_rs1             ),
+                .reg_rs2             (reg_rs2             ),
+                .imm_se              (imm_se              ),
+                .reg_write           (reg_write           ),
+                .alu_src_imm         (alu_src_imm         ),
+                .mem_write           (mem_write           ),
+                .reg_write_back_sel  (reg_write_back_sel  ),
+                .jump_ctrl           (jump_ctrl           ),
+                .instr_class         (instr_class         )
             );
 
-// output declaration of module RegisterFile
-reg [15:0] out_reg_a;
-reg [15:0] out_reg_b;
+    // output declaration of module RegisterFile
+    reg [15:0] rf_out_reg_a;
+    reg [15:0] rf_out_reg_b;
 
-RegisterFile u_RegisterFile(
-    .clk           	(clk            ),
-    .write_enabled 	(reg_write_tbl[STAGE_DECODE]  ), //FIXME: is a later stage here!
-    .addr_reg_a    	(aReg_addr_tbl[STAGE_DECODE]     ),
-    .addr_reg_b    	(bReg_addr_tbl[STAGE_DECODE]     ),
-    .addr_dest     	(dstReg_addr_tbl[STAGE_DECODE]   ),
-    .write_data    	(write_data     ),
-    .out_reg_a     	(out_reg_a      ),
-    .out_reg_b     	(out_reg_b      )
-);
+    RegisterFile u_RegisterFile(
+                     .clk           (clk                            ),
+                     .write_enabled (reg_write_tbl[STAGE_DECODE]    ), //FIXME: is a later stage here!
+                     .addr_reg_a    (aReg_addr_tbl[STAGE_DECODE]    ),
+                     .addr_reg_b    (bReg_addr_tbl[STAGE_DECODE]    ),
+                     .addr_dest     (dstReg_addr_tbl[STAGE_DECODE]  ),
+                     .write_data    (write_data                     ), //FIXME: is a later stage here!
+                     .out_reg_a     (rf_out_reg_a                   ),
+                     .out_reg_b     (rf_out_reg_b                   )
+                 );
 
 
-    // output declaration of module jumper
-    // wire pc_write_enabled;
+    // output declaration of module Alu16
+    reg [15:0] alu_result;
 
-    // jumper u_comparator(
-    //     .jump_operator    	(id_jump_ctrl      ),
-    //     .test_value        	(id_regA           ),
-    //     .dest_address       (id_regB           ),
-    //     .pc_write_enabled 	(pc_write_enabled  )
-    // );
+    wire [15:0] alu_input_b = (alu_src_imm_tbl[STAGE_DECODE])
+         ? alu_immediate_tbl[STAGE_DECODE]
+         : bReg_val_tbl[STAGE_DECODE];
+
+    //If instruction class is not for ALU the we use addition as the default operation.
+    wire [4:0] effective_alu_ctrl = (instruction_class_tbl[STAGE_DECODE] == 2'b01)
+         ? alu_ctrl_tbl[STAGE_DECODE]
+         : 5'b00000 ;
+
+    Alu16 u_Alu16(
+              .A       (bReg_val_tbl[STAGE_DECODE]),
+              .B       (alu_input_b),
+              .ALUCtrl (effective_alu_ctrl),
+              .Result  (alu_result   )
+          );
+
+    // output declaration of module Jumper
+    reg pc_write_en;
+    wire pc_write_enabled = (instruction_class_tbl[STAGE_DECODE] == 2'b10)
+         ? pc_write_enabled
+         : 1'b0;
+
+    Jumper u_Jumper(
+               .jump_operator    (jump_ctrl_tbl[STAGE_DECODE]     ),
+               .test_value       ( aReg_val_tbl[STAGE_DECODE]     ),
+               .dest_address     (bReg_val_tbl[STAGE_DECODE]      ),
+               .pc_write_enabled (pc_write_en  )
+           );
 
 
 
@@ -208,13 +229,21 @@ RegisterFile u_RegisterFile(
                     mem_address_tbl[STAGE_DECODE] <= 0;
                     mem_data_out_tbl[STAGE_DECODE] <= 0;
                     mem_data_it_tbl[STAGE_DECODE] <= 0;
-                     //For jumps
+                    //For jumps
                     pc_wr_enable_tbl[STAGE_DECODE] <=  0;
 
                     // $display("%0d@ [DECODE] INSTRUCTION: %b | rDest:%d | rA:%d |rB:%d | aluCTRL:%b | alusrcimm:%b >>> R0=%0d, R1=%0d, R2=%0d, R3=%0d, R4=%0d, R5=%0d, R6=%0d, R7=%0d",
                     //  if_pc, if_instruction, reg_dst, reg_rs1, reg_rs2, alu_ctrl, alu_src_imm,  u_RegisterFile.cpu_registers[0], u_RegisterFile.cpu_registers[1], u_RegisterFile.cpu_registers[2], u_RegisterFile.cpu_registers[3],
                     //    u_RegisterFile.cpu_registers[4], u_RegisterFile.cpu_registers[5], u_RegisterFile.cpu_registers[6], u_RegisterFile.cpu_registers[7]);
 
+                    stage <= STAGE_REGISTER_READ;
+                end
+
+                STAGE_REGISTER_READ: begin
+                    //this is to estabilize all register values from the decode stage as
+                    //reading the register file is asynchronous
+                    aReg_val_tbl[STAGE_DECODE] <= rf_out_reg_a;
+                    bReg_val_tbl[STAGE_DECODE] <= rf_out_reg_b;
                     stage <= STAGE_EXECUTE;
                 end
 
@@ -229,25 +258,26 @@ RegisterFile u_RegisterFile(
                     bReg_addr_tbl[STAGE_EXECUTE] <= bReg_addr_tbl[STAGE_DECODE];
                     dstReg_addr_tbl[STAGE_EXECUTE] <= dstReg_addr_tbl[STAGE_DECODE];
                     alu_immediate_tbl[STAGE_EXECUTE] <= alu_immediate_tbl[STAGE_DECODE];
-                    reg_write_tbl[STAGE_EXECUTE] <= reg_write_tbl[STAGE_DECODE];
                     alu_src_imm_tbl[STAGE_EXECUTE] <= alu_src_imm_tbl[STAGE_DECODE];
 
                     mem_write_tbl[STAGE_EXECUTE] <= mem_write_tbl[STAGE_DECODE];
                     reg_write_back_sel_tbl[STAGE_EXECUTE] <= reg_write_back_sel_tbl[STAGE_DECODE];
                     instruction_class_tbl[STAGE_EXECUTE] <= instruction_class_tbl[STAGE_DECODE];
 
-                    
+
                     //For execute
-                    aReg_val_tbl[STAGE_EXECUTE] <= 0;
-                    bReg_val_tbl[STAGE_EXECUTE] <= 0;
-                    alu_result_tbl[STAGE_EXECUTE] <= 0;
+                    aReg_val_tbl[STAGE_EXECUTE] <=  aReg_val_tbl[STAGE_DECODE];
+                    bReg_val_tbl[STAGE_EXECUTE] <= bReg_val_tbl[STAGE_DECODE];
+                    alu_result_tbl[STAGE_EXECUTE] <= alu_result;
+
                     //For memory
                     mem_address_tbl[STAGE_EXECUTE] <= 0;
                     mem_data_out_tbl[STAGE_EXECUTE] <= 0;
                     mem_data_it_tbl[STAGE_EXECUTE] <= 0;
                     //For jumps
+                    reg_write_tbl[STAGE_EXECUTE] <= reg_write_tbl[STAGE_DECODE];
                     pc_wr_enable_tbl[STAGE_EXECUTE] <=  0;
-                    
+
                     // $display("%0d@ [EXEC] aluCTRL:%b |  A:%b | B:%b | InputB:%b | alu_res:%b | destAddr:%b",
                     //                         id_pc, id_alu_ctrl, id_regA, id_regB, alu_input_B, alu_result, id_addr_regDst);
 
@@ -257,8 +287,6 @@ RegisterFile u_RegisterFile(
                 STAGE_MEMORY: begin
 
                     // $display("%0d@ [MEM] Addr=%b | dataOut??=%b IF(%b)", ex_pc, ex_alu_result, ex_regB, ex_mem_write);
-
-
                     stage <= STAGE_MEMORY_WAIT;
                 end
 
