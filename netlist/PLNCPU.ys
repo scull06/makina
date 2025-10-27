@@ -1,3 +1,0 @@
-read_verilog -sv -formal -overwrite {workspace}/src/pln_cpu.v
-design -reset-vlog; proc;
-write_json {workspace}/netlist/PLNCPU.json
