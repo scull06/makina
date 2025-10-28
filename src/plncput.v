@@ -276,7 +276,7 @@ module plncput (
                     mem_data_it_tbl[STAGE_EXECUTE] <= 0;
                     //For jumps
                     reg_write_tbl[STAGE_EXECUTE] <= reg_write_tbl[STAGE_DECODE];
-                    pc_wr_enable_tbl[STAGE_EXECUTE] <=  0;
+                    pc_wr_enable_tbl[STAGE_EXECUTE] <=  pc_write_enabled;
 
                     // $display("%0d@ [EXEC] aluCTRL:%b |  A:%b | B:%b | InputB:%b | alu_res:%b | destAddr:%b",
                     //                         id_pc, id_alu_ctrl, id_regA, id_regB, alu_input_B, alu_result, id_addr_regDst);
