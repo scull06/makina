@@ -1,4 +1,6 @@
-- [ ] La memoria ya debe estar lista, ver como se trata la memoria en la WB stage y como afecta los rehgistros.
+
+- [ ] Finalizar el write back para los registros
+- [ ] finalizar el flushign the las instrucciones que se ejecutan especulativamente antes de un JUMP que toma el branch!
 
 
 

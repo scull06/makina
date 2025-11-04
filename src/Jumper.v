@@ -1,7 +1,7 @@
 module Jumper (
     input wire [2:0]  jump_operator,
     input wire [15:0] test_value,
-    input wire [15:0] dest_address,
+    // input wire [15:0] dest_address,
     output reg  pc_write_enabled //wether the PC should receive the input address
 );
 

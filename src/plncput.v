@@ -3,7 +3,7 @@ module plncput (
         input              rst,
         input  wire [15:0] instr_in,       // instruction from ROM being processed
         input  wire [15:0] pmem_data_in,   // read from RAM
-        output wire [15:0] pc,
+        output reg [15:0] pc,
         output reg  [15:0] pmem_data_out,  // write to RAM
         output reg  [15:0] pmem_addr_out,  // address of RAM to be written
         output reg         pmem_write
@@ -25,6 +25,10 @@ module plncput (
 
     //Cycles of the pipeline which must equal the FSM's number of stages
     localparam  unsigned CYCLES = 8;
+
+    //Flushing control
+    reg [2:0] flushing_counter;
+    reg stage_validity [0:CYCLES-1];
 
     //Pipeline table for PC
     reg [15:0] pc_tbl [0:CYCLES-1];
@@ -133,8 +137,8 @@ module plncput (
 
     Jumper u_Jumper(
                .jump_operator    (jump_ctrl_tbl[STAGE_DECODE]     ),
-               .test_value       ( aReg_val_tbl[STAGE_DECODE]     ),
-               .dest_address     (bReg_val_tbl[STAGE_DECODE]      ),
+               .test_value       (aReg_val_tbl[STAGE_DECODE]      ),
+               //    .dest_address     (bReg_val_tbl[STAGE_DECODE]      ),
                .pc_write_enabled (pc_write_en  )
            );
 
@@ -146,7 +150,7 @@ module plncput (
         if (rst) begin
             //reset instruction and PC
             for (i = 0; i < CYCLES; i = i + 1) begin
-                pc_tbl[i] <= 0;
+                // pc_tbl[i] <= 0;
                 instruction_tbl[i] <= 0;
                 pc_wr_enable_tbl[i] <= 0;
                 instruction_class_tbl[i] <= 0;
@@ -179,7 +183,7 @@ module plncput (
                     stage <= STAGE_FETCH;
                 end
                 STAGE_FETCH: begin  //INSTRUCION FETCH
-                    pc_tbl[STAGE_FETCH] <= 0; //TODO:
+                    // pc_tbl[STAGE_FETCH] <= 0; //TODO:
                     instruction_tbl[STAGE_FETCH] <= instr_in;
                     pc_wr_enable_tbl[STAGE_FETCH] <= 0;
                     instruction_class_tbl[STAGE_FETCH] <= 0;
@@ -204,7 +208,7 @@ module plncput (
                 end
 
                 STAGE_DECODE: begin  //INSTRUCTION DECODING
-                    pc_tbl[STAGE_DECODE] <= pc_tbl[STAGE_FETCH];
+                    // pc_tbl[STAGE_DECODE] <= pc_tbl[STAGE_FETCH];
                     instruction_tbl[STAGE_DECODE] <= instruction_tbl[STAGE_FETCH];
 
                     alu_ctrl_tbl[STAGE_DECODE] <= alu_ctrl;
@@ -248,14 +252,12 @@ module plncput (
                 end
 
                 STAGE_EXECUTE: begin  //EXECUTE THE INSTRUCTION
-                    pc_tbl[STAGE_EXECUTE] <= pc_tbl[STAGE_DECODE];
                     instruction_tbl[STAGE_EXECUTE] <= instruction_tbl[STAGE_DECODE];
 
                     alu_ctrl_tbl[STAGE_EXECUTE] <= alu_ctrl_tbl[STAGE_DECODE];
-                    jump_ctrl_tbl[STAGE_EXECUTE] <= jump_ctrl_tbl[STAGE_DECODE];
 
-                    aReg_addr_tbl[STAGE_EXECUTE] <= aReg_addr_tbl[STAGE_DECODE];
-                    bReg_addr_tbl[STAGE_EXECUTE] <= bReg_addr_tbl[STAGE_DECODE];
+                    // aReg_addr_tbl[STAGE_EXECUTE] <= aReg_addr_tbl[STAGE_DECODE];
+                    // bReg_addr_tbl[STAGE_EXECUTE] <= bReg_addr_tbl[STAGE_DECODE];
                     dstReg_addr_tbl[STAGE_EXECUTE] <= dstReg_addr_tbl[STAGE_DECODE];
                     alu_immediate_tbl[STAGE_EXECUTE] <= alu_immediate_tbl[STAGE_DECODE];
                     alu_src_imm_tbl[STAGE_EXECUTE] <= alu_src_imm_tbl[STAGE_DECODE];
@@ -270,62 +272,101 @@ module plncput (
                     bReg_val_tbl[STAGE_EXECUTE] <= bReg_val_tbl[STAGE_DECODE];
                     alu_result_tbl[STAGE_EXECUTE] <= alu_result;
 
-                    //For memory
-                    mem_address_tbl[STAGE_EXECUTE] <= 0;
-                    mem_data_out_tbl[STAGE_EXECUTE] <= 0;
-                    mem_data_in_tbl[STAGE_EXECUTE] <= 0;
-                    //For jumps
+                    //For register write back
                     reg_write_tbl[STAGE_EXECUTE] <= reg_write_tbl[STAGE_DECODE];
-                    pc_wr_enable_tbl[STAGE_EXECUTE] <=  pc_write_enabled;
 
-                    // $display("%0d@ [EXEC] aluCTRL:%b |  A:%b | B:%b | InputB:%b | alu_res:%b | destAddr:%b",
-                    //                         id_pc, id_alu_ctrl, id_regA, id_regB, alu_input_B, alu_result, id_addr_regDst);
+                    /* Branching control */
+                    if( instruction_class_tbl[STAGE_DECODE] == 2'b10 && pc_write_enabled ) begin
+                        pc <= bReg_val_tbl[STAGE_DECODE];
+                        //Pipeline flushing control
+                        flushing_counter <= 3'b011; //DISCARD the 3 incomming instructions.
+                    end
+                    else begin
+                        pc <= pc + 1;
+                    end
 
                     stage <= STAGE_MEMORY;
                 end
 
                 STAGE_MEMORY: begin
 
-                    pc_tbl[STAGE_MEMORY] <= pc_tbl[STAGE_EXECUTE];
-                    instruction_tbl[STAGE_MEMORY] <= instruction_tbl[STAGE_EXECUTE];
-
-                    alu_ctrl_tbl[STAGE_MEMORY] <= alu_ctrl_tbl[STAGE_EXECUTE];
-                    jump_ctrl_tbl[STAGE_MEMORY] <= jump_ctrl_tbl[STAGE_EXECUTE];
-
-                    aReg_addr_tbl[STAGE_MEMORY] <= aReg_addr_tbl[STAGE_EXECUTE];
-                    bReg_addr_tbl[STAGE_MEMORY] <= bReg_addr_tbl[STAGE_EXECUTE];
-                    dstReg_addr_tbl[STAGE_MEMORY] <= dstReg_addr_tbl[STAGE_EXECUTE];
-                    alu_immediate_tbl[STAGE_MEMORY] <= alu_immediate_tbl[STAGE_EXECUTE];
-                    alu_src_imm_tbl[STAGE_MEMORY] <= alu_src_imm_tbl[STAGE_EXECUTE];
-
-                    reg_write_back_sel_tbl[STAGE_MEMORY] <= reg_write_back_sel_tbl[STAGE_EXECUTE];
-                    instruction_class_tbl[STAGE_MEMORY] <= instruction_class_tbl[STAGE_EXECUTE];
+                    if(flushing_counter > 0) begin
+                        // TODO: invalidate all values
+                        //decreasing the flushing counter until the pipeline is clean
+                        flushing_counter <= flushing_counter - 1;
+                        stage_validity[STAGE_MEMORY] <= 0;
+                        
 
 
-                    //For execute
-                    aReg_val_tbl[STAGE_MEMORY] <=  aReg_val_tbl[STAGE_EXECUTE];
-                    bReg_val_tbl[STAGE_MEMORY] <= bReg_val_tbl[STAGE_EXECUTE];
-                    alu_result_tbl[STAGE_MEMORY] <= alu_result_tbl[STAGE_EXECUTE];
+                        alu_ctrl_tbl[STAGE_MEMORY] <= 0;
+                        jump_ctrl_tbl[STAGE_MEMORY] <= 0;
 
-                    //For memory
-                    //FIXME:
-                    //Presenting data to the memory bus. Effective in next cycle.
-                    //It means that memory data will come back in the cycle after.
-                    //So reading from memory wastes 2 cycles
-                    pmem_addr_out <= alu_result_tbl[STAGE_EXECUTE];
-                    pmem_data_out <= bReg_val_tbl[STAGE_EXECUTE];
-                    pmem_write <= mem_write_tbl[STAGE_EXECUTE];
+                        aReg_addr_tbl[STAGE_MEMORY] <= 0;
+                        bReg_addr_tbl[STAGE_MEMORY] <= 0;
+                        dstReg_addr_tbl[STAGE_MEMORY] <= 0;
+                        alu_immediate_tbl[STAGE_MEMORY] <= 0;
+                        alu_src_imm_tbl[STAGE_MEMORY] <= 0;
 
-                    //Carrying the register values of the memory stage
-                    mem_address_tbl[STAGE_MEMORY] <= alu_result_tbl[STAGE_EXECUTE];
-                    mem_data_out_tbl[STAGE_MEMORY] <= bReg_val_tbl[STAGE_EXECUTE];
-                    mem_write_tbl[STAGE_MEMORY] <= mem_write_tbl[STAGE_EXECUTE];
-                    mem_data_in_tbl[STAGE_MEMORY] <= 0; //still not loading from memory...
+                        reg_write_back_sel_tbl[STAGE_MEMORY] <= 0;
+                        instruction_class_tbl[STAGE_MEMORY] <= 0;
 
-                    //For jumps
-                    reg_write_tbl[STAGE_MEMORY] <= reg_write_tbl[STAGE_EXECUTE];
-                    pc_wr_enable_tbl[STAGE_MEMORY] <=  pc_wr_enable_tbl[STAGE_EXECUTE];
 
+                        //For execute
+                        aReg_val_tbl[STAGE_MEMORY] <= 0;
+                        bReg_val_tbl[STAGE_MEMORY] <= 0;
+                        alu_result_tbl[STAGE_MEMORY] <= 0;
+
+                        pmem_addr_out <= 0;
+                        pmem_data_out <= 0;
+                        pmem_write <= 0;
+
+                        //Carrying the register values of the memory stage
+                        mem_address_tbl[STAGE_MEMORY] <= 0;
+                        mem_data_out_tbl[STAGE_MEMORY] <= 0;
+                        mem_write_tbl[STAGE_MEMORY] <= 0;
+                        mem_data_in_tbl[STAGE_MEMORY] <= 0;
+
+                        //For register writes
+                        reg_write_tbl[STAGE_MEMORY] <= 0;
+                    end
+                    else begin
+
+                        alu_ctrl_tbl[STAGE_MEMORY] <= alu_ctrl_tbl[STAGE_EXECUTE];
+                        jump_ctrl_tbl[STAGE_MEMORY] <= jump_ctrl_tbl[STAGE_EXECUTE];
+
+                        aReg_addr_tbl[STAGE_MEMORY] <= aReg_addr_tbl[STAGE_EXECUTE];
+                        bReg_addr_tbl[STAGE_MEMORY] <= bReg_addr_tbl[STAGE_EXECUTE];
+                        dstReg_addr_tbl[STAGE_MEMORY] <= dstReg_addr_tbl[STAGE_EXECUTE];
+                        alu_immediate_tbl[STAGE_MEMORY] <= alu_immediate_tbl[STAGE_EXECUTE];
+                        alu_src_imm_tbl[STAGE_MEMORY] <= alu_src_imm_tbl[STAGE_EXECUTE];
+
+                        reg_write_back_sel_tbl[STAGE_MEMORY] <= reg_write_back_sel_tbl[STAGE_EXECUTE];
+                        instruction_class_tbl[STAGE_MEMORY] <= instruction_class_tbl[STAGE_EXECUTE];
+
+
+                        //For execute
+                        aReg_val_tbl[STAGE_MEMORY] <=  aReg_val_tbl[STAGE_EXECUTE];
+                        bReg_val_tbl[STAGE_MEMORY] <= bReg_val_tbl[STAGE_EXECUTE];
+                        alu_result_tbl[STAGE_MEMORY] <= alu_result_tbl[STAGE_EXECUTE];
+
+                        //For memory
+                        //FIXME:
+                        //Presenting data to the memory bus. Effective in next cycle.
+                        //It means that memory data will come back in the cycle after.
+                        //So reading from memory wastes 2 cycles
+                        pmem_addr_out <= alu_result_tbl[STAGE_EXECUTE];
+                        pmem_data_out <= bReg_val_tbl[STAGE_EXECUTE];
+                        pmem_write <= mem_write_tbl[STAGE_EXECUTE];
+
+                        //Carrying the register values of the memory stage
+                        mem_address_tbl[STAGE_MEMORY] <= alu_result_tbl[STAGE_EXECUTE];
+                        mem_data_out_tbl[STAGE_MEMORY] <= bReg_val_tbl[STAGE_EXECUTE];
+                        mem_write_tbl[STAGE_MEMORY] <= mem_write_tbl[STAGE_EXECUTE];
+                        mem_data_in_tbl[STAGE_MEMORY] <= 0; //still not loading from memory...
+
+                        //For register writes
+                        reg_write_tbl[STAGE_MEMORY] <= reg_write_tbl[STAGE_EXECUTE];
+                    end
                     // $display("%0d@ [MEM] Addr=%b | dataOut??=%b IF(%b)", ex_pc, ex_alu_result, ex_regB, ex_mem_write);
                     stage <= STAGE_MEMORY_WAIT;
                 end
@@ -333,9 +374,51 @@ module plncput (
                 STAGE_MEMORY_WAIT: begin
                     //pmem_data_in is still loading from memory;
                     //BUBBLE MEMORY STAGE
+
+                    //TODO: i'm here
+                    if(stage_validity[STAGE_MEMORY]) begin
+                        pmem_data_in <= pmem_data_out_tbl[STAGE_MEMORY];
+                    end
+                    else begin
+                        pmem_data_in <= 0;
+                    end
+
+
+                    pc_tbl[STAGE_MEMORY_WAIT] <= pc_tbl[STAGE_MEMORY];
+                    instruction_tbl[STAGE_MEMORY_WAIT] <= instruction_tbl[STAGE_MEMORY];
+
+                    alu_ctrl_tbl[STAGE_MEMORY_WAIT] <= alu_ctrl_tbl[STAGE_MEMORY];
+                    jump_ctrl_tbl[STAGE_MEMORY_WAIT] <= jump_ctrl_tbl[STAGE_MEMORY];
+
+                    aReg_addr_tbl[STAGE_MEMORY_WAIT] <= aReg_addr_tbl[STAGE_MEMORY];
+                    bReg_addr_tbl[STAGE_MEMORY_WAIT] <= bReg_addr_tbl[STAGE_MEMORY];
+                    dstReg_addr_tbl[STAGE_MEMORY_WAIT] <= dstReg_addr_tbl[STAGE_MEMORY];
+                    alu_immediate_tbl[STAGE_MEMORY_WAIT] <= alu_immediate_tbl[STAGE_MEMORY];
+                    alu_src_imm_tbl[STAGE_MEMORY_WAIT] <= alu_src_imm_tbl[STAGE_MEMORY];
+
+                    reg_write_back_sel_tbl[STAGE_MEMORY_WAIT] <= reg_write_back_sel_tbl[STAGE_MEMORY];
+                    instruction_class_tbl[STAGE_MEMORY_WAIT] <= instruction_class_tbl[STAGE_MEMORY];
+
+                    //For execute
+                    aReg_val_tbl[STAGE_MEMORY_WAIT] <=  aReg_val_tbl[STAGE_MEMORY];
+                    bReg_val_tbl[STAGE_MEMORY_WAIT] <= bReg_val_tbl[STAGE_MEMORY];
+                    alu_result_tbl[STAGE_MEMORY_WAIT] <= alu_result_tbl[STAGE_MEMORY];
+
+                    //Carrying the register values of the memory stage
+                    mem_address_tbl[STAGE_MEMORY_WAIT] <= alu_result_tbl[STAGE_MEMORY];
+                    mem_data_out_tbl[STAGE_MEMORY_WAIT] <= bReg_val_tbl[STAGE_MEMORY];
+                    mem_write_tbl[STAGE_MEMORY_WAIT] <= mem_write_tbl[STAGE_MEMORY];
+                    mem_data_in_tbl[STAGE_MEMORY_WAIT] <= 0; //still not loading from memory...
+
+                    //For register writes
+                    reg_write_tbl[STAGE_MEMORY_WAIT] <= reg_write_tbl[STAGE_MEMORY];
+
+                    //For jumps
+                    pc_wr_enable_tbl[STAGE_MEMORY_WAIT] <=  pc_wr_enable_tbl[STAGE_MEMORY];
+
                     stage <= STAGE_WRITEBACK;
                 end
- 
+
                 STAGE_WRITEBACK: begin
 
                     // $display("%0d@ [WRB] pmem_data_in=%b |  | mem_addr_to_write:%b | to_write_to_mem:%b", ex_pc,  pmem_data_in, mem_addr_out, mem_data_out);
